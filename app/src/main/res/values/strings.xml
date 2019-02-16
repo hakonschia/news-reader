@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">news-reader</string>
+    <string name="preferences">Preferences</string>
+
+    <!-- Start MainActivity -->
+    <string name="filter_hint">Enter filter</string>
+
+    <!-- End MainActivity -->
+
+
+    <!-- Start PreferencesActivity -->
+    <string name="url_label">Enter the URL to fetch data from (RSS 2.0 or Atom)</string>
+    <string name="url_hint">www.reddit.com/r/globaloffensive/.rss</string>
+
+    <string name="amount_of_articles_label">Enter how many articles you want to fetch</string>
+    <string name="amount_of_articles_hint">20</string>
+
+    <string name="update_rate_label">Enter how often you want to fetch articles (in minutes)</string>
+    <string name="update_rate_hint">20</string>
+
+    <string name="btn_apply_text">Apply</string>
+    <string name="btn_cancel_text">Cancel</string>
+    <!-- End PreferencesActivity -->
+
+</resources>
