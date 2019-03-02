@@ -1,6 +1,7 @@
 package com.hakon.news_reader;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -36,7 +37,7 @@ public class PreferencesActivity extends AppCompatActivity {
         // TODO: default values must also be set from mainactivity
         String oldURL = preferences.getString(
                 MainActivity.PREFS_URL,
-                MainActivity.DEFUALT_URL
+                MainActivity.DEFAULT_URL
         );
 
         final Integer oldArticlesAmount = preferences.getInt(
@@ -103,6 +104,9 @@ public class PreferencesActivity extends AppCompatActivity {
                 // TODO: Find out difference on apply() and commit()
                 preferencesEditor.apply();
 
+                // Send back that something was (probably) updated
+                //so the updater thread can be interrupted
+                setResult(RESULT_OK, new Intent().putExtra("updated", true));
                 finish();
             }
         });

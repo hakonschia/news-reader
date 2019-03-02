@@ -16,6 +16,7 @@ public class NewsArticle {
     private String mTitle;
     private String mDesc;
     private String mURL;
+    private boolean isRSS;
 
     private static final String TAG = "NewsArticle";
 

@@ -39,8 +39,7 @@ public class NewsListAdapter extends RecyclerView.Adapter<NewsListAdapter.NewsLi
                 false
         );
 
-        NewsListViewHolder viewHolder = new NewsListViewHolder(view);
-        return viewHolder;
+        return new NewsListViewHolder(view);
     }
 
     @Override
@@ -70,7 +69,6 @@ public class NewsListAdapter extends RecyclerView.Adapter<NewsListAdapter.NewsLi
         private RelativeLayout parentLayout;
         private TextView tvTitle;
         private TextView tvDesc;
-
 
         public NewsListViewHolder(@NonNull View itemView) {
             super(itemView);
