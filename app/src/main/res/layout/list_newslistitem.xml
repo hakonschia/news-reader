@@ -8,20 +8,29 @@
     android:layout_height="wrap_content"
     android:padding="15dp"
     android:layout_margin="15dp"
-    android:elevation="10dp"
     android:foreground="?attr/selectableItemBackground"
-    android:background="@drawable/custom_border">
+    android:background="#E2E2E2">
 
     <TextView
         android:id="@+id/tv_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textStyle="bold" />
+        android:textSize="18sp"
+        android:textStyle="bold"
+        tools:text="Ence win the 2019 Katowice Major 2-0!"/>
 
     <TextView
-        android:id="@+id/tv_desc"
+        android:id="@+id/tv_updatedDate"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@+id/tv_title"
-        android:layout_marginLeft="20dp"/>
+        android:textSize="12sp"
+        android:textStyle="italic"
+        tools:text="03-03-2019 21:35:29"/>
+
+    <WebView
+        android:id="@+id/web_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/tv_updatedDate" />
 </RelativeLayout>

@@ -24,23 +24,15 @@ import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.WireFeedInput;
 import com.rometools.rome.io.XmlReader;
 
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
-
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
-
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -142,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void afterTextChanged(Editable s) {
                 // Cancel the old task first, then create a new
-                // task that is currently the task that will ba ran
+                // task that is currently the task that will be ran
                 timer.cancel();
                 timer = new Timer();
                 timer.schedule(new TimerTask() {
@@ -210,30 +202,18 @@ public class MainActivity extends AppCompatActivity {
                 DEFAULT_UPDATE_RATE
         );
 
-        mURL = "https://www.theregister.co.uk/data_centre/headlines.atom";
+        //mURL = "https://www.theregister.co.uk/data_centre/headlines.atom";
         //mURL = "https://nedlasting.geonorge.no/geonorge/Tjenestefeed.xml"; // ATOM example
     }
 
     /**
-     * Updates mArticles and sets the adapter
+     * Fetches new articles and sets the mEntries list
      */
     private void updateArticles() {
         this.updateLoaderVisibility();
         this.updatePreferences();
 
-        XPath xpath = XPathFactory.newInstance().newXPath();
-        InputSource inputSource = new InputSource(mURL);
-
         try {
-            // ATOM feeds fuck up on namespaces and this is the only way i figured out so far
-            NodeList first = (NodeList)xpath.evaluate("/*[local-name()='feed']", inputSource, XPathConstants.NODESET);
-
-            NodeList nodeList = (NodeList)xpath.evaluate(
-                    "//item",  // Find all the item elements in the document
-                    inputSource,
-                    XPathConstants.NODESET
-            );
-
             mArticles.clear(); // TODO make it just add more articles instead of clearing all
 
             // In case there were items in the recycler view already, the adapter
@@ -246,43 +226,38 @@ public class MainActivity extends AppCompatActivity {
             });
 
             SyndFeed feed = new SyndFeedInput().build(new XmlReader(new URL(mURL)));
-            WireFeed feed2 = new WireFeedInput().build(new XmlReader((new URL(mURL))));
-
-            // TODO: Dont fetch the article itself all the time, just on the update or something, or force fetch by the user
-            // TODO: Only get articles from the filter
-
-            // RSS or ATOM can be found from getFeedType()
-            Log.d(TAG, "updateArticles: feed type: " + feed2.getFeedType());
-
-            for (SyndEntry entry : feed.getEntries()) {
-                Log.d(TAG, "updateArticles: " + entry.getTitle());
-                NewsArticle n = new NewsArticle(entry);
-                mArticles.add(n);
-
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        mNewsListAdapter.notifyItemChanged(mArticles.size() - 1);
-                    }
-                });
-            }
+            // WireFeed feed2 = new WireFeedInput().build(new XmlReader((new URL(mURL))));
+            // feed2.getFeedType() = RSS or ATOM
 
             List<SyndEntry> entries = feed.getEntries();
 
-            mArticles.clear(); // TODO make it just add more articles instead of clearing all
+            Pattern p = Pattern.compile(mFilter);
 
-            Log.d(TAG, "updateArticles: " + Math.min(entries.size(), mAmountOfArticles));
-            for(int i = 0; i < Math.min(entries.size(), mAmountOfArticles); i++) {
+            for(int i = 0; i < Math.min(mAmountOfArticles, entries.size()); i++) {
                 try { // Artificial loading time
                     Thread.sleep(200);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
 
-                mArticles.add(new NewsArticle(entries.get(i)));
+                SyndEntry entry = entries.get(i);
 
-                final int index = i; // Needs to be final to use inside inner class and
-                // cant make it final in the loop initializer :))
+                if(mFilter.isEmpty()) { // No filter is entered, add all mEntries
+                    mArticles.add(new NewsArticle(entry));
+                } else { // Search through and only add articles matching the filter
+                    String title = entry.getTitle();
+                    String desc = entry.getDescription().getValue();
+
+                    Matcher titleMatcher = p.matcher(title);
+                    Matcher descMatcher = p.matcher(desc);
+
+                    if(titleMatcher.find() || descMatcher.find()) {
+                        mArticles.add(new NewsArticle(entry));
+                    }
+                }
+
+                // Needs to be redeclared as final to use inside inner class and
+                final int index = i;
 
                 // Update the adapter as the articles are loaded
                 runOnUiThread(new Runnable() {
@@ -292,13 +267,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
-        } catch (XPathExpressionException e) {
-            e.printStackTrace();
-        } catch (FeedException e) {
-            e.printStackTrace();
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (FeedException | IOException e) {
             e.printStackTrace();
         }
 
@@ -312,8 +281,6 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-
-                // TODO; find a way to oneline swap it (setVisibility.(!visible))
                 if(mPrgLoader.getVisibility() == View.VISIBLE) {
                     mPrgLoader.setVisibility(View.GONE);
                 } else {
