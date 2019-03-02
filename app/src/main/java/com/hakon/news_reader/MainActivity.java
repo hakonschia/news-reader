@@ -1,27 +1,40 @@
 package com.hakon.news_reader;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 
+import com.rometools.rome.feed.WireFeed;
+import com.rometools.rome.feed.synd.SyndEntry;
+import com.rometools.rome.feed.synd.SyndFeed;
+import com.rometools.rome.io.FeedException;
+import com.rometools.rome.io.SyndFeedInput;
+import com.rometools.rome.io.WireFeedInput;
+import com.rometools.rome.io.XmlReader;
+
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Scanner;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
 import javax.xml.xpath.XPath;
@@ -37,8 +50,9 @@ public class MainActivity extends AppCompatActivity {
     private Integer mUpdateRate;
     private Integer mAmountOfArticles;
     private ArrayList<NewsArticle> mArticles;
-    private Thread articlesUpdater;
+    private Thread mArticlesUpdater;
     private NewsListAdapter mNewsListAdapter;
+    private String mFilter;
 
     /* UI elements */
     private Button mBtnPreferences;
@@ -62,6 +76,8 @@ public class MainActivity extends AppCompatActivity {
     public static final int ACTIVITY_REQUEST_ARTICLE = 1;
 
 
+    // TODO Rotating the screen shouldnt update the whole thing
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -73,11 +89,13 @@ public class MainActivity extends AppCompatActivity {
         final RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this);
         mRvNewsList.setLayoutManager(layoutManager);
 
+        mFilter = "";
         mArticles = new ArrayList<>();
         mNewsListAdapter = new NewsListAdapter(this, mArticles);
         mRvNewsList.setAdapter(mNewsListAdapter);
 
-        articlesUpdater = new Thread(new Runnable() {
+        // Create the thread responsible for updating the articles
+        mArticlesUpdater = new Thread(new Runnable() {
             @Override
             public void run() {
                 while(true) {
@@ -91,12 +109,59 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        articlesUpdater.start();
+        mArticlesUpdater.start();
+
+
+        /* ---------------------------------
+            ----- Event listeners -----
+        --------------------------------- */
 
         mBtnPreferences.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivityForResult(new Intent(MainActivity.this, PreferencesActivity.class), ACTIVITY_REQUEST_ARTICLE);
+            }
+        });
+
+        mEtNewsFilter.addTextChangedListener(new TextWatcher() {
+            private Timer timer = new Timer();
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                mFilter = s.toString();
+            }
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            /**
+             * Update the list 1 second after the last character was typed
+             */
+            @Override
+            public void afterTextChanged(Editable s) {
+                // Cancel the old task first, then create a new
+                // task that is currently the task that will ba ran
+                timer.cancel();
+                timer = new Timer();
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        mArticlesUpdater.interrupt(); // Send an interrupt to the sleeping thread
+
+                        // Close the keyboard
+                        InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+                        try {
+                            imm.hideSoftInputFromWindow(
+                                    getCurrentFocus().getWindowToken(),
+                                    0
+                            );
+                        } catch (NullPointerException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, 1000);
             }
         });
     }
@@ -110,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
                 if(data.getBooleanExtra("updated", false)) {
                     // Some preferences were updated, interrupt the
                     // sleeping thread to make it update
-                    articlesUpdater.interrupt();
+                    mArticlesUpdater.interrupt();
                 }
             }
         }
@@ -145,14 +210,13 @@ public class MainActivity extends AppCompatActivity {
                 DEFAULT_UPDATE_RATE
         );
 
+        mURL = "https://www.theregister.co.uk/data_centre/headlines.atom";
         //mURL = "https://nedlasting.geonorge.no/geonorge/Tjenestefeed.xml"; // ATOM example
     }
 
     /**
      * Updates mArticles and sets the adapter
      */
-
-
     private void updateArticles() {
         this.updateLoaderVisibility();
         this.updatePreferences();
@@ -181,17 +245,44 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            for(int i = 0; i < Math.min(nodeList.getLength(), mAmountOfArticles); i++) {
+            SyndFeed feed = new SyndFeedInput().build(new XmlReader(new URL(mURL)));
+            WireFeed feed2 = new WireFeedInput().build(new XmlReader((new URL(mURL))));
+
+            // TODO: Dont fetch the article itself all the time, just on the update or something, or force fetch by the user
+            // TODO: Only get articles from the filter
+
+            // RSS or ATOM can be found from getFeedType()
+            Log.d(TAG, "updateArticles: feed type: " + feed2.getFeedType());
+
+            for (SyndEntry entry : feed.getEntries()) {
+                Log.d(TAG, "updateArticles: " + entry.getTitle());
+                NewsArticle n = new NewsArticle(entry);
+                mArticles.add(n);
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mNewsListAdapter.notifyItemChanged(mArticles.size() - 1);
+                    }
+                });
+            }
+
+            List<SyndEntry> entries = feed.getEntries();
+
+            mArticles.clear(); // TODO make it just add more articles instead of clearing all
+
+            Log.d(TAG, "updateArticles: " + Math.min(entries.size(), mAmountOfArticles));
+            for(int i = 0; i < Math.min(entries.size(), mAmountOfArticles); i++) {
                 try { // Artificial loading time
                     Thread.sleep(200);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
 
-                mArticles.add(new NewsArticle(nodeList.item(i)));
+                mArticles.add(new NewsArticle(entries.get(i)));
 
                 final int index = i; // Needs to be final to use inside inner class and
-                // cant make it final in the loop inializer :))
+                // cant make it final in the loop initializer :))
 
                 // Update the adapter as the articles are loaded
                 runOnUiThread(new Runnable() {
@@ -201,7 +292,13 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
-        } catch(XPathExpressionException e) {
+        } catch (XPathExpressionException e) {
+            e.printStackTrace();
+        } catch (FeedException e) {
+            e.printStackTrace();
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
@@ -224,49 +321,5 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-    }
-
-    /**
-     * Downloads a file from the internet asynchronously
-     */
-    protected static class FileDownloader extends AsyncTask<String, Void, ArrayList<NewsArticle>> {
-        @Override
-        protected ArrayList<NewsArticle> doInBackground(String... urls) {
-            XPath xpath = XPathFactory.newInstance().newXPath();
-            final InputSource inputSource = new InputSource(urls[0]);
-
-            try {
-                NodeList first = (NodeList)xpath.evaluate("/", inputSource, XPathConstants.NODESET);
-
-                Log.d(TAG, "doInBackground: reading " + urls[0]);
-                if(first == null) {
-                    Log.d(TAG, "doInBackground: first node is null");
-                } else {
-                    Log.d(TAG, "doInBackground: " + first.item(0).getNodeName());
-                }
-
-                for(int i = 0; i < first.getLength(); i++) {
-                    Log.d(TAG, "NodeName: " + first.item(0).getNodeName());
-                }
-
-                NodeList nodeList = (NodeList)xpath.evaluate(
-                        "//item",  // Find all the item elements in the document
-                        inputSource,
-                        XPathConstants.NODESET
-                );
-
-                ArrayList<NewsArticle> articles = new ArrayList<>();
-
-                for(int i = 0; i < nodeList.getLength(); i++) {
-                    articles.add(new NewsArticle(nodeList.item(i)));
-                }
-
-                return articles;
-            } catch(XPathExpressionException e) {
-                e.printStackTrace();
-            }
-
-            return null;
-        }
     }
 }

@@ -39,7 +39,7 @@ public class ArticleActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        if(mWebView.canGoBack()) { // If the webview can go back, do so, or else
+        if(mWebView.canGoBack()) { // If the WebView can go back, do so, or else
             mWebView.goBack();     // return to MainActivity
         } else {
             finish();
