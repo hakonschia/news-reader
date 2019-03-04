@@ -3,6 +3,7 @@ package com.hakon.news_reader;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -16,12 +17,10 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 
-import com.rometools.rome.feed.WireFeed;
 import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.FeedException;
 import com.rometools.rome.io.SyndFeedInput;
-import com.rometools.rome.io.WireFeedInput;
 import com.rometools.rome.io.XmlReader;
 
 import java.io.IOException;
@@ -42,21 +41,24 @@ public class MainActivity extends AppCompatActivity {
     private Integer mUpdateRate;
     private Integer mAmountOfArticles;
     private ArrayList<NewsArticle> mArticles;
-    private Thread mArticlesUpdater;
+    private Thread mThreadArticlesUpdater;
     private NewsListAdapter mNewsListAdapter;
     private String mFilter;
+    private List<SyndEntry> mNewsEntries;
 
     /* UI elements */
     private Button mBtnPreferences;
     private EditText mEtNewsFilter;
     private RecyclerView mRvNewsList;
     private ProgressBar mPrgLoader;
+    private SwipeRefreshLayout mRefreshLayout;
 
     /* Private constants */
     private static final String TAG = "MainActivity";
 
     /* Public constants */
     public static final String PREFS_NAME = "preferences";
+
     public static final String DEFAULT_URL = "https://www.cisco.com/c/dam/global/no_no/about/rss.xml";
     public static final int DEFAULT_ARTICLES_AMOUNT = 20;
     public static final int DEFAULT_UPDATE_RATE = 20;
@@ -68,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
     public static final int ACTIVITY_REQUEST_ARTICLE = 1;
 
 
-    // TODO Rotating the screen shouldnt update the whole thing
+    // TODO Rotating the screen shouldn't update the whole thing
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,11 +89,12 @@ public class MainActivity extends AppCompatActivity {
         mRvNewsList.setAdapter(mNewsListAdapter);
 
         // Create the thread responsible for updating the articles
-        mArticlesUpdater = new Thread(new Runnable() {
+        mThreadArticlesUpdater = new Thread(new Runnable() {
             @Override
             public void run() {
                 while(true) {
-                    updateArticles();
+                    Log.d(TAG, "run: fetching");
+                    fetchArticles();
 
                     try {
                         TimeUnit.MINUTES.sleep(mUpdateRate);
@@ -101,17 +104,28 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        mArticlesUpdater.start();
+        mThreadArticlesUpdater.start();
 
 
         /* ---------------------------------
             ----- Event listeners -----
         --------------------------------- */
 
+        // TODO: When reaching the bottom of the list: this.updateArticles();
+
         mBtnPreferences.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivityForResult(new Intent(MainActivity.this, PreferencesActivity.class), ACTIVITY_REQUEST_ARTICLE);
+            }
+        });
+
+
+        mRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                mThreadArticlesUpdater.interrupt();
+                mRefreshLayout.setRefreshing(false); // Removes the refreshing loader icon
             }
         });
 
@@ -140,8 +154,6 @@ public class MainActivity extends AppCompatActivity {
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {
-                        mArticlesUpdater.interrupt(); // Send an interrupt to the sleeping thread
-
                         // Close the keyboard
                         InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
                         try {
@@ -152,6 +164,9 @@ public class MainActivity extends AppCompatActivity {
                         } catch (NullPointerException e) {
                             e.printStackTrace();
                         }
+
+                        // Update the articles and clear
+                        updateArticles(true);
                     }
                 }, 1000);
             }
@@ -167,7 +182,8 @@ public class MainActivity extends AppCompatActivity {
                 if(data.getBooleanExtra("updated", false)) {
                     // Some preferences were updated, interrupt the
                     // sleeping thread to make it update
-                    mArticlesUpdater.interrupt();
+
+                    mThreadArticlesUpdater.interrupt();
                 }
             }
         }
@@ -181,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
         mEtNewsFilter = findViewById(R.id.et_newsFilter);
         mRvNewsList = findViewById(R.id.rv_newsList);
         mPrgLoader = findViewById(R.id.prg_loader);
+        mRefreshLayout = findViewById(R.id.rfr_swipeLayout);
     }
 
     /**
@@ -202,22 +219,25 @@ public class MainActivity extends AppCompatActivity {
                 DEFAULT_UPDATE_RATE
         );
 
+        //mURL = "/home/hakon/Downloads/DDmT8VV4.xml";
         //mURL = "https://www.theregister.co.uk/data_centre/headlines.atom";
         //mURL = "https://nedlasting.geonorge.no/geonorge/Tjenestefeed.xml"; // ATOM example
     }
 
     /**
-     * Fetches new articles and sets the mEntries list
+     * Fetches the articles and loads the entries into mEntries. Clears the old articles
      */
-    private void updateArticles() {
-        this.updateLoaderVisibility();
-        this.updatePreferences();
+    private void fetchArticles() {
+        this.updatePreferences(); // Make sure the URL is updated
 
         try {
-            mArticles.clear(); // TODO make it just add more articles instead of clearing all
+            // WireFeed feed2 = new WireFeedInput().build(new XmlReader((new URL(mURL))));
+            // feed2.getFeedType() = RSS or ATOM
+            SyndFeed feed = new SyndFeedInput().build(new XmlReader(new URL(mURL)));
+            mNewsEntries = feed.getEntries();
 
-            // In case there were items in the recycler view already, the adapter
-            // needs to be notified that the data set was changed
+            mArticles.clear(); // Clear articles to make sure the latest ones are added
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -225,53 +245,81 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            SyndFeed feed = new SyndFeedInput().build(new XmlReader(new URL(mURL)));
-            // WireFeed feed2 = new WireFeedInput().build(new XmlReader((new URL(mURL))));
-            // feed2.getFeedType() = RSS or ATOM
+            this.updateArticles(true);
+        } catch (FeedException | IOException e) { e.printStackTrace(); }
+    }
 
-            List<SyndEntry> entries = feed.getEntries();
+    /**
+     * Updates the articles list
+     * @param clear Whether or not to clear the articles
+     */
+    private void updateArticles(boolean clear) {
+        this.updateLoaderVisibility();
 
-            Pattern p = Pattern.compile(mFilter);
-
-            for(int i = 0; i < Math.min(mAmountOfArticles, entries.size()); i++) {
-                try { // Artificial loading time
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+        if(clear) {
+            mArticles.clear();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mNewsListAdapter.notifyDataSetChanged();
                 }
-
-                SyndEntry entry = entries.get(i);
-
-                if(mFilter.isEmpty()) { // No filter is entered, add all mEntries
-                    mArticles.add(new NewsArticle(entry));
-                } else { // Search through and only add articles matching the filter
-                    String title = entry.getTitle();
-                    String desc = entry.getDescription().getValue();
-
-                    Matcher titleMatcher = p.matcher(title);
-                    Matcher descMatcher = p.matcher(desc);
-
-                    if(titleMatcher.find() || descMatcher.find()) {
-                        mArticles.add(new NewsArticle(entry));
-                    }
-                }
-
-                // Needs to be redeclared as final to use inside inner class and
-                final int index = i;
-
-                // Update the adapter as the articles are loaded
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        mNewsListAdapter.notifyItemChanged(index);
-                    }
-                });
-            }
-        } catch (FeedException | IOException e) {
-            e.printStackTrace();
+            });
         }
 
+        // Start at the element at position size (which is the next, 0..size-1)
+        int from = mArticles.size();
+
+        // Go to whatever is smallest of the amount of entries or the current
+        // amount added to the user specified amount to fetch
+        int to = Math.min(mNewsEntries.size(), from + mAmountOfArticles);
+
+        this.addArticles(from, to);
+
         this.updateLoaderVisibility();
+    }
+
+    /**
+     * Adds articles from the entries to the adapter
+     * @param from the starting position of mNewsEntries (inclusive)
+     * @param to the ending position of mNewsEntries (non-inclusive)
+     */
+    private void addArticles(int from, int to) {
+        Pattern p = Pattern.compile(mFilter);
+
+        for(int i = from; i < to; i++) {
+            try { // Artificial loading time
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            SyndEntry entry = mNewsEntries.get(i);
+
+            if (mFilter.isEmpty()) { // No filter is entered, add all entries
+                mArticles.add(new NewsArticle(entry));
+            } else { // Search through and only add articles matching the filter
+                String title = entry.getTitle();
+                String desc = entry.getDescription().getValue();
+
+                Matcher titleMatcher = p.matcher(title);
+                Matcher descMatcher = p.matcher(desc);
+
+                if (titleMatcher.find() || descMatcher.find()) {
+                    mArticles.add(new NewsArticle(entry));
+                }
+            }
+
+            // Needs to be redeclared as final to use inside inner class and
+            final int index = i;
+
+            // Update the adapter as the articles are loaded
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mNewsListAdapter.notifyItemChanged(index);
+                }
+            });
+        }
     }
 
     /**

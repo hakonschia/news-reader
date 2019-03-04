@@ -1,6 +1,5 @@
 package com.hakon.news_reader;
 
-import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.support.v7.app.AppCompatActivity;
@@ -34,7 +33,6 @@ public class PreferencesActivity extends AppCompatActivity {
         final SharedPreferences preferences = getSharedPreferences(MainActivity.PREFS_NAME, 0);
         final SharedPreferences.Editor preferencesEditor = preferences.edit();
 
-        // TODO: default values must also be set from mainactivity
         String oldURL = preferences.getString(
                 MainActivity.PREFS_URL,
                 MainActivity.DEFAULT_URL
@@ -51,23 +49,14 @@ public class PreferencesActivity extends AppCompatActivity {
         );
 
 
-        Log.d(TAG, String.format("%s, %d, %d", oldURL, oldArticlesAmount, oldUpdateRate));
-        /* Not sure yet if the old values are needed for anything else. If not, this is sufficient
-        mEtTxtArticlesAmount.setText(preferences.getInt(
-                "articlesAmount",
-                DEFAULT_ARTICLES_AMOUNT
-        ));
-        */
         mEtTxtURL.setText(oldURL);
         mEtTxtArticlesAmount.setText(oldArticlesAmount.toString());
         mEtTxtUpdateRate.setText(oldUpdateRate.toString());
-
 
         mBtnApply.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 // TODO: These values might cause errors if they're empty etc. Might need to check
-                // TODO: Validate that the url is valid rss/atom (idk how this is done tho so google:))
 
                 Integer amountValue;
                 try {
@@ -88,16 +77,17 @@ public class PreferencesActivity extends AppCompatActivity {
                 }
 
 
+                // TODO: Make "url", "articlesAmount" etc constants
                 preferencesEditor.putString(
-                        "url",
+                        MainActivity.PREFS_URL,
                         mEtTxtURL.getText().toString()
                 );
                 preferencesEditor.putInt(
-                        "articlesAmount",
+                        MainActivity.PREFS_AMOUNT_OF_ARTICLES,
                         amountValue
                 );
                 preferencesEditor.putInt(
-                        "updateRate",
+                        MainActivity.PREFS_UPDATE_RATE,
                         updateValue
                 );
 
@@ -105,7 +95,7 @@ public class PreferencesActivity extends AppCompatActivity {
                 preferencesEditor.apply();
 
                 // Send back that something was (probably) updated
-                //so the updater thread can be interrupted
+                // so the updater thread can be interrupted
                 setResult(RESULT_OK, new Intent().putExtra("updated", true));
                 finish();
             }
@@ -119,7 +109,6 @@ public class PreferencesActivity extends AppCompatActivity {
             }
         });
     }
-
 
     /**
      * Initializes all UI elements
