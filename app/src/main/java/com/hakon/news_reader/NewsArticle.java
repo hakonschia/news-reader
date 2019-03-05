@@ -28,7 +28,12 @@ public class NewsArticle {
      */
     public NewsArticle(SyndEntry entry) {
         mTitle = entry.getTitle();
-        mDesc = entry.getDescription().getValue();
+
+        try {
+            mDesc = entry.getDescription().getValue();
+        } catch(NullPointerException e) {
+            e.printStackTrace();
+        }
         mURL = entry.getLink();
         mUpdatedDate = entry.getUpdatedDate();
 

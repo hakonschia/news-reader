@@ -49,6 +49,11 @@ public class NewsListAdapter extends RecyclerView.Adapter<NewsListAdapter.NewsLi
         viewHolder.webDescription.setWebViewClient(new WebViewClient());
         viewHolder.webDescription.loadData(article.getDesc(), "text/html", "UTF-8");
 
+        /* TODO: Figure out if this is how you change the layout */
+        if(article.getDesc() == null) {
+            viewHolder.webDescription.layout(0, R.id.tv_title, 0, 0);
+        }
+
         try {
             viewHolder.tvUpdatedDate.setText(dateFormater.format(article.getUpdatedDate()));
         } catch (NullPointerException e) {

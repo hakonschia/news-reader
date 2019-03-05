@@ -17,6 +17,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 
+import com.rometools.rome.feed.synd.SyndContent;
 import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.FeedException;
@@ -299,7 +300,13 @@ public class MainActivity extends AppCompatActivity {
                 mArticles.add(new NewsArticle(entry));
             } else { // Search through and only add articles matching the filter
                 String title = entry.getTitle();
-                String desc = entry.getDescription().getValue();
+                String desc = "";
+
+                try {
+                    desc = entry.getDescription().getValue();
+                } catch(NullPointerException e) {
+                    e.printStackTrace();
+                }
 
                 Matcher titleMatcher = p.matcher(title);
                 Matcher descMatcher = p.matcher(desc);
