@@ -30,7 +30,7 @@ public class PreferencesActivity extends AppCompatActivity {
 
         this.initViews();
 
-        final SharedPreferences preferences = getSharedPreferences(MainActivity.PREFS_NAME, 0);
+        final SharedPreferences preferences = getSharedPreferences(MainActivity.PREFS_SETTINGS, 0);
         final SharedPreferences.Editor preferencesEditor = preferences.edit();
 
         String oldURL = preferences.getString(
@@ -77,7 +77,6 @@ public class PreferencesActivity extends AppCompatActivity {
                 }
 
 
-                // TODO: Make "url", "articlesAmount" etc constants
                 preferencesEditor.putString(
                         MainActivity.PREFS_URL,
                         mEtTxtURL.getText().toString()

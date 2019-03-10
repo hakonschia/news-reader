@@ -56,4 +56,14 @@ public class NewsArticle {
     public Date getUpdatedDate() {
         return mUpdatedDate;
     }
+
+    @Override
+    public String toString() {
+        return "NewsArticle{" +
+                "mTitle='" + mTitle + '\'' +
+                ", mURL='" + mURL + '\'' +
+                ", mDesc='" + mDesc + '\'' +
+                ", mUpdatedDate=" + mUpdatedDate +
+                '}';
+    }
 }
