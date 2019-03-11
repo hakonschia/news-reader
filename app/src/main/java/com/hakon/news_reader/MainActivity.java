@@ -38,16 +38,16 @@ import java.util.regex.Pattern;
 public class MainActivity extends AppCompatActivity {
 
     // TODO: Allow multiple news sources, make mURL into an arraylist (in Preferences, spilt news by "," or something similar)
-    /* Primitives / Standard java types */
-    private String mURL;
-    private Integer mUpdateRate;
-    private Integer mAmountOfArticles;
-    private ArrayList<NewsArticle> mArticles;
-    private Thread mThreadArticlesUpdater;
-    private NewsListAdapter mNewsListAdapter;
-    private String mFilter;
-    private List<SyndEntry> mNewsEntries;
-    private FeedFetcher feedFetcher;
+    /* Standard types */
+    private String mFilter;         // What to filter the articles on
+    private String mURL;            // The URL to fetch articles from
+    private Integer mUpdateRate;    // How often the articles should auto-update
+    private Integer mAmountOfArticles;          // How many articles to fetch at a time
+    private ArrayList<NewsArticle> mArticles;   // The articles
+    private Thread mThreadArticlesUpdater;      // The thread that fetches the articles
+    private NewsListAdapter mNewsListAdapter;   // Adapter for the RecyclerView
+    private FeedFetcher feedFetcher;            // Fetches and updates articles
+    private int mOldArticlesAmount;             // Used for when the filter is changed, to keep the same amount
 
     /* UI elements */
     private Button mBtnPreferences;
@@ -87,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
         mRvNewsList.setLayoutManager(layoutManager);
 
         mFilter = "";
+        mOldArticlesAmount = 0;
         mArticles = new ArrayList<>();
         mNewsListAdapter = new NewsListAdapter(this, mArticles);
         mRvNewsList.setAdapter(mNewsListAdapter);
@@ -100,16 +101,10 @@ public class MainActivity extends AppCompatActivity {
                 while(true) {
                     updatePreferences(); // Make sure the everything is up to date
 
-                    Log.d(TAG, "run: fetching");
-
-                    updateLoaderVisibility();
-
                     feedFetcher.fetchArticles(); // Fetch the latest articles
 
-                    feedFetcher.getArticles(mArticles, mFilter, 0, mAmountOfArticles);
-                    notifyDatasetChange();
-
-                    updateLoaderVisibility();
+                    updateArticles(0, mAmountOfArticles);
+                    mOldArticlesAmount = mArticles.size();
 
                     try {
                         TimeUnit.MINUTES.sleep(mUpdateRate);
@@ -176,39 +171,46 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                         }
 
-                        // TODO: Something
-                        // Update the articles and clear
-                        //updateArticles(true);
+                        // Just update articles, don't fetch new ones
+                        // Get the amount of articles that was there before a filter was entered
+                        updateArticles(0, mOldArticlesAmount);
                     }
-                }, 1000);
+                }, 750);
             }
         });
 
         mRvNewsList.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            private boolean updating = false;
+
+            // Idk if the updating variable can cause problems if it's on multiple threads
+            // so I'm pretty sure adding synchronized makes sure it wont :)
             @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+            public synchronized void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 super.onScrollStateChanged(recyclerView, newState);
 
                 // -1 = scroll up, 1 = scroll down
-                if(!recyclerView.canScrollVertically(1)) { // Can't scroll down, at the end of the list
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            updateLoaderVisibility();
+                // It's extremely sensitive, I'll tell you that
+                if(!recyclerView.canScrollVertically(1)) { // Can't scroll down, load more articles
+                    if(!updating) {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if(!updating) {
+                                    updating = true;
 
-                            int from = mArticles.size();
+                                    int from = mArticles.size();
 
-                            // Go to whatever is smallest of the amount of entries or the current
-                            // amount added to the user specified amount to fetch
-                            int to = Math.min(feedFetcher.getFeedSize(), from + mAmountOfArticles);
+                                    // Go to whatever is smallest of the amount of entries or the current
+                                    // amount added to the user specified amount to fetch
+                                    int to = Math.min(feedFetcher.getFeedSize(), from + mAmountOfArticles);
 
-                            feedFetcher.getArticles(mArticles, mFilter, from, to);
+                                    updateArticles(from, to);
 
-                            updateLoaderVisibility();
-
-                            notifyDatasetChange();
-                        }
-                    }).start();
+                                    updating = false;
+                                }
+                            }
+                        }).start();
+                    }
                 }
             }
         });
@@ -259,37 +261,28 @@ public class MainActivity extends AppCompatActivity {
                 PREFS_UPDATE_RATE,
                 DEFAULT_UPDATE_RATE
         );
-
-        //mURL = "/home/hakon/Downloads/DDmT8VV4.xml";
-        //mURL = "https://www.theregister.co.uk/data_centre/headlines.atom";
-        //mURL = "https://nedlasting.geonorge.no/geonorge/Tjenestefeed.xml"; // ATOM example
     }
 
     /**
-     * Updates the loaders visibility
+     * Helper function that updates the RecyclerView dataset and updates the loader
+     * @param from Where the start in the entries
+     * @param to Where the end in the entries
      */
-    private void updateLoaderVisibility() {
+    private void updateArticles(int from, int to) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if(mPrgLoader.getVisibility() == View.VISIBLE) {
-                    mPrgLoader.setVisibility(View.GONE);
-                } else {
-                    mPrgLoader.setVisibility(View.VISIBLE);
-                }
+                mPrgLoader.setVisibility(View.VISIBLE);
             }
         });
-    }
 
-    /**
-     * Notifies the newslist adapter that the data set has changed.
-     * Runs on the UI thread.
-     */
-    private void notifyDatasetChange() {
+        feedFetcher.getArticles(mArticles, mFilter, from, to);
+
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mNewsListAdapter.notifyDataSetChanged();
+                mPrgLoader.setVisibility(View.GONE);
             }
         });
     }

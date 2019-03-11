@@ -31,6 +31,7 @@ public class FeedFetcher {
         mURL = url;
     }
 
+
     /**
      * Reads the URL and fetches the articles from the feed
      */
@@ -41,14 +42,6 @@ public class FeedFetcher {
         } catch (FeedException | IOException e) {
             e.printStackTrace();
         }
-    }
-
-    /**
-     * Sets the feed URL
-     * @param url The url to fetch from
-     */
-    public void setURL(String url) {
-        this.mURL = url;
     }
 
     /**
@@ -75,11 +68,9 @@ public class FeedFetcher {
 
         to = Math.min(to, mEntries.size());
 
-        Log.d(TAG, "getArticles: form " + from + ", to " + to);
-
         for(int i = from; i < to; i++) {
             try { // Artificial loading time
-                Thread.sleep(200);
+                Thread.sleep(300);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
