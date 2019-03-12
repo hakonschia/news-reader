@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -66,6 +67,7 @@ public class NewsListAdapter extends RecyclerView.Adapter<NewsListAdapter.NewsLi
                 Intent intent = new Intent(mContext, ArticleActivity.class);
                 intent.putExtra("url", mArticles.get(i).getURL());
 
+                Log.d(TAG, "onClick: " + mArticles.get(i).getURL());
                 mContext.startActivity(intent);
             }
         });

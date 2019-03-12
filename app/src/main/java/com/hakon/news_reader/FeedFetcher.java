@@ -8,6 +8,8 @@ import com.rometools.rome.io.FeedException;
 import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
 
+import org.xml.sax.InputSource;
+
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -56,8 +58,8 @@ public class FeedFetcher {
      * Creates a list of articles from the current entries
      * @param articles The list to add the articles to. If from is 0, this is cleared first.
      * @param filter What to filter the articles on
-     * @param from Where the start in the entries
-     * @param to Where to end in the entries
+     * @param from Where the start in the entries (inclusive)
+     * @param to Where to end in the entries (non-inclusive)
      */
     public void getArticles(ArrayList<NewsArticle> articles, String filter, int from, int to) {
         Pattern p = Pattern.compile(filter);

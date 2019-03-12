@@ -261,6 +261,9 @@ public class MainActivity extends AppCompatActivity {
                 PREFS_UPDATE_RATE,
                 DEFAULT_UPDATE_RATE
         );
+
+        //mURL = "https://folk.ntnu.no/haakosc/feed.rss";
+        mURL = "/home/hakon/Downloads/feed.rss";
     }
 
     /**
