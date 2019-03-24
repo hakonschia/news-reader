@@ -9,6 +9,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 
+import java.nio.charset.MalformedInputException;
+
 public class PreferencesActivity extends AppCompatActivity {
 
     /* UI elements */
@@ -17,6 +19,7 @@ public class PreferencesActivity extends AppCompatActivity {
     private EditText mEtTxtUpdateRate;
     private Button mBtnApply;
     private Button mBtnCancel;
+    private Button mBtnDefault;
 
 
     /* Private constants */
@@ -56,8 +59,6 @@ public class PreferencesActivity extends AppCompatActivity {
         mBtnApply.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // TODO: These values might cause errors if they're empty etc. Might need to check
-
                 Integer amountValue;
                 try {
                     amountValue = Integer.parseInt(mEtTxtArticlesAmount.getText().toString());
@@ -90,7 +91,6 @@ public class PreferencesActivity extends AppCompatActivity {
                         updateValue
                 );
 
-                // TODO: Find out difference on apply() and commit()
                 preferencesEditor.apply();
 
                 // Send back that something was (probably) updated
@@ -107,6 +107,32 @@ public class PreferencesActivity extends AppCompatActivity {
                 finish();
             }
         });
+
+        // Resets to default values
+        mBtnDefault.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                preferencesEditor.putString(
+                        MainActivity.PREFS_URL,
+                        MainActivity.DEFAULT_URL
+                );
+                preferencesEditor.putInt(
+                        MainActivity.PREFS_AMOUNT_OF_ARTICLES,
+                        MainActivity.DEFAULT_ARTICLES_AMOUNT
+                );
+                preferencesEditor.putInt(
+                        MainActivity.PREFS_UPDATE_RATE,
+                        MainActivity.DEFAULT_UPDATE_RATE
+                );
+
+                preferencesEditor.apply();
+
+                // Send back that something was (probably) updated
+                // so the updater thread can be interrupted
+                setResult(RESULT_OK, new Intent().putExtra("updated", true));
+                finish();
+            }
+        });
     }
 
     /**
@@ -119,5 +145,6 @@ public class PreferencesActivity extends AppCompatActivity {
 
         mBtnApply = findViewById(R.id.btn_apply);
         mBtnCancel = findViewById(R.id.btn_cancel);
+        mBtnDefault = findViewById(R.id.btn_default);
     }
 }

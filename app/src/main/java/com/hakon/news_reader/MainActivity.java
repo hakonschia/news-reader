@@ -37,7 +37,6 @@ import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
-    // TODO: Allow multiple news sources, make mURL into an arraylist (in Preferences, spilt news by "," or something similar)
     /* Standard types */
     private String mFilter;         // What to filter the articles on
     private String mURL;            // The URL to fetch articles from
@@ -72,8 +71,6 @@ public class MainActivity extends AppCompatActivity {
 
     public static final int ACTIVITY_REQUEST_ARTICLE = 1;
 
-
-    // TODO Rotating the screen shouldn't update the whole thing. fixed by not allowing rotation ayy
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,16 +172,12 @@ public class MainActivity extends AppCompatActivity {
 
                         // If filter is empty, get old amount?
                         // Get the amount of articles that was there before a filter was entered
-                        Log.d(TAG, "run: getting max " + mOldArticlesAmount);
                         updateArticles(0, mOldArticlesAmount);
-                       // mThreadArticlesUpdater.interrupt();
                     }
                 }, 750);
             }
         });
 
-
-        // TODO: Filtering doesnt search in the articles for some reason, only the old :(
 
         mRvNewsList.addOnScrollListener(new RecyclerView.OnScrollListener() {
             private boolean updating = false;
