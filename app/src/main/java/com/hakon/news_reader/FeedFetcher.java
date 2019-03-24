@@ -35,6 +35,15 @@ public class FeedFetcher {
 
 
     /**
+     * Sets the url
+     * @param url The url to set
+     */
+    public void setURL(String url) {
+        mURL = url;
+    }
+
+
+    /**
      * Reads the URL and fetches the articles from the feed
      */
     public void fetchArticles() {
@@ -46,6 +55,7 @@ public class FeedFetcher {
         }
     }
 
+
     /**
      * Gets the amount of articles in the feed
      * @return The amount of articles in the feed
@@ -53,6 +63,7 @@ public class FeedFetcher {
     public int getFeedSize() {
         return mEntries.size();
     }
+
 
     /**
      * Creates a list of articles from the current entries

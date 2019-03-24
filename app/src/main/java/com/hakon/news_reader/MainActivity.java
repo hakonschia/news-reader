@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
     public static final int ACTIVITY_REQUEST_ARTICLE = 1;
 
 
-    // TODO Rotating the screen shouldn't update the whole thing
+    // TODO Rotating the screen shouldn't update the whole thing. fixed by not allowing rotation ayy
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,15 +101,17 @@ public class MainActivity extends AppCompatActivity {
                 while(true) {
                     updatePreferences(); // Make sure the everything is up to date
 
+                    feedFetcher.setURL(mURL); // If the URL was updated the fetcher needs to be know
                     feedFetcher.fetchArticles(); // Fetch the latest articles
 
-                    updateArticles(0, mAmountOfArticles);
+                    // Either start from scratch, or fetch the same amount that already were there
+                    updateArticles(0, Math.max(mAmountOfArticles, mArticles.size()));
                     mOldArticlesAmount = mArticles.size();
 
                     try {
                         TimeUnit.MINUTES.sleep(mUpdateRate);
                     } catch(InterruptedException e) {
-                        e.printStackTrace();
+                        //e.printStackTrace();
                     }
                 }
             }
@@ -129,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
 
         mRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
-            public void onRefresh() {
+            public void onRefresh() { // Pulling down from the top refresher
                 mThreadArticlesUpdater.interrupt();
                 mRefreshLayout.setRefreshing(false); // Removes the refreshing loader icon
             }
@@ -171,13 +173,18 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                         }
 
-                        // Just update articles, don't fetch new ones
+                        // If filter is empty, get old amount?
                         // Get the amount of articles that was there before a filter was entered
+                        Log.d(TAG, "run: getting max " + mOldArticlesAmount);
                         updateArticles(0, mOldArticlesAmount);
+                       // mThreadArticlesUpdater.interrupt();
                     }
                 }, 750);
             }
         });
+
+
+        // TODO: Filtering doesnt search in the articles for some reason, only the old :(
 
         mRvNewsList.addOnScrollListener(new RecyclerView.OnScrollListener() {
             private boolean updating = false;
@@ -205,6 +212,7 @@ public class MainActivity extends AppCompatActivity {
                                     int to = Math.min(feedFetcher.getFeedSize(), from + mAmountOfArticles);
 
                                     updateArticles(from, to);
+                                    mOldArticlesAmount = mArticles.size();
 
                                     updating = false;
                                 }
@@ -225,7 +233,6 @@ public class MainActivity extends AppCompatActivity {
                 if(data.getBooleanExtra("updated", false)) {
                     // Some preferences were updated, interrupt the
                     // sleeping thread to make it update
-
                     mThreadArticlesUpdater.interrupt();
                 }
             }
@@ -244,7 +251,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Updates preferences
+     * Updates the settings preferences
      */
     private void updatePreferences() {
         SharedPreferences preferences = getSharedPreferences(PREFS_SETTINGS, 0);
@@ -261,9 +268,6 @@ public class MainActivity extends AppCompatActivity {
                 PREFS_UPDATE_RATE,
                 DEFAULT_UPDATE_RATE
         );
-
-        //mURL = "https://folk.ntnu.no/haakosc/feed.rss";
-        mURL = "/home/hakon/Downloads/feed.rss";
     }
 
     /**
